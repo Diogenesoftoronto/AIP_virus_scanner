@@ -21,25 +21,29 @@ pub fn cStrToSlice(c_str: [*c]u8) []u8 {
     return c_str[0..length :0];
 }
 
-pub fn extractFileNameFromPath(allocator: std.mem.Allocator, path: []u8) error{OutOfMemory}![]u8 {
-    // Loop through the path until you find the last os path seperator
-    var file_name_char_list = try std.ArrayList(u8).initCapacity(allocator, path.len);
+// pub fn extractFileNameFromPath(allocator: std.mem.Allocator, path: []u8) error{OutOfMemory}![]u8 {
+//     // Loop through the path until you find the last os path seperator
+//     var file_name_char_list = try std.ArrayList(u8).initCapacity(allocator, path.len);
+//     defer file_name_char_list.deinit();
 
-    defer file_name_char_list.deinit();
+//     for (path) |char| {
+//         if (std.fs.path.isSep(char)) {
+//             file_name_char_list.clearRetainingCapacity();
+//         }
+//         file_name_char_list.appendAssumeCapacity(char);
+//     }
+//     return file_name_char_list.items;
+// }
 
-    for (path) |char| {
-        if (std.fs.path.isSep(char)) {
-            file_name_char_list.clearRetainingCapacity();
-        }
-        file_name_char_list.appendAssumeCapacity(char);
-    }
-    return file_name_char_list.items;
-}
+// pub fn extractFileNameFromPath(path: []const u8) []const u8 {
+//     var file_name = std.mem.splitBackwardsSequence(u8, path, std.fs.path.sep_str);
+//     return file_name;
+// }
 
 pub fn main() !void {
-    var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    // var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    // defer arena.deinit();
+    // const alloc = arena.allocator();
 
     const stdout = std.io.getStdOut().writer();
 
@@ -110,7 +114,7 @@ pub fn main() !void {
     } else if (is_infected_with_virus == clam.CL_CLEAN) {
         const file_metadata = try fd.metadata();
         _ = file_metadata;
-        try stdout.print("No viruses have been found in .{!s}\n", .{extractFileNameFromPath(alloc, true_path)});
+        try stdout.print("No viruses have been found in {!s}\n", .{std.fs.path.basename(true_path)});
     }
     try stdout.print("Finish scanning the files for viruses\n", .{});
 }
