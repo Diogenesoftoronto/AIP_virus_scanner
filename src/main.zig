@@ -1,9 +1,16 @@
 const std = @import("std");
 const clam = @import("c.zig");
 
+pub const FreeClamEngine = fn (?*clam.cl_engine) callconv(.C) c_uint;
+pub fn freeEngine(comptime free: FreeClamEngine, engine: ?*clam.cl_engine) void {
+    const is_free = free(engine);
+    if (is_free != clam.CL_SUCCESS) {
+        std.debug.print("Freeing the engine has failed", .{});
+        std.os.exit(1);
+    }
+}
+
 pub fn main() !void {
-    // const CL = enum { succes, failure, init_default, max_engine_scantime, db_stdopt };
-    // _ = CL;
     const stdout = std.io.getStdOut().writer();
     const stdin = std.io.getStdIn().reader();
     var true_path: []u8 = undefined;
@@ -20,22 +27,22 @@ pub fn main() !void {
         else => std.debug.print("The were other unexpected errors {}", .{err}),
     }
 
-    var fd: std.fs.File = try std.fs.cwd().openFile(true_path, .{
+    const fd: std.fs.File = try std.fs.cwd().openFile(true_path, .{
         .mode = .read_only,
     });
     defer fd.close();
 
     try stdout.print("\nInitializing Clamav\n", .{});
-    var is_initialized = clam.cl_init(clam.CL_INIT_DEFAULT);
-    if (*is_initialized != clam.CL_SUCCESS) {
+    const is_initialized = clam.cl_init(clam.CL_INIT_DEFAULT);
+    if (is_initialized != clam.CL_SUCCESS) {
         std.debug.print("Failed to initialize Clamav. Got: {}", .{is_initialized});
         std.os.exit(1);
     }
     try stdout.print("Clamav Initialisation complete.\n", .{});
 
     try stdout.print("Clamav Engine Starting.\n", .{});
-    const engine: clam.cl_engine = clam.cl_engine_new();
-    defer clam.cl_engine_free(engine);
+    const engine: ?*clam.cl_engine = clam.cl_engine_new();
+    defer freeEngine(clam.cl_engine_free, engine);
     if (engine == null) {
         std.debug.print("The engine could not begin.", .{});
         std.os.exit(1);
