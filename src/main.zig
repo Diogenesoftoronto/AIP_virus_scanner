@@ -27,14 +27,15 @@ pub fn main() !void {
 
     try stdout.print("\nInitializing Clamav\n", .{});
     var is_initialized = clam.cl_init(clam.CL_INIT_DEFAULT);
-    if (is_initialized != clam.CL_SUCCESS) {
-        std.debug.print("Failed to initialize clamav. Got: {}", .{is_initialized});
+    if (*is_initialized != clam.CL_SUCCESS) {
+        std.debug.print("Failed to initialize Clamav. Got: {}", .{is_initialized});
         std.os.exit(1);
     }
     try stdout.print("Clamav Initialisation complete.\n", .{});
 
     try stdout.print("Clamav Engine Starting.\n", .{});
-    var engine = clam.cl_engine_new();
+    const engine: clam.cl_engine = clam.cl_engine_new();
+    defer clam.cl_engine_free(engine);
     if (engine == null) {
         std.debug.print("The engine could not begin.", .{});
         std.os.exit(1);
