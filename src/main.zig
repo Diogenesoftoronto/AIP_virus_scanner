@@ -21,7 +21,6 @@ pub fn main() !void {
     } else |err| switch (err) {
         error.StreamTooLong => std.debug.print("Your file name was too long, try a shorter file.", .{}),
         else => std.debug.print("The were other unexpected errors {}", .{err}),
-        // error.EndOfStream => std.debug.print("The stream terminated unexpectedly."),
     }
 
     var ret = clam.cl_init(clam.CL_INIT_DEFAULT);
