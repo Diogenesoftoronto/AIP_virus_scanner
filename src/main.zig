@@ -1,5 +1,11 @@
 const std = @import("std");
 const clam = @import("c.zig");
+const builtin = @import("builtin");
+
+pub const ScannedFileResults = struct {
+    file: std.fs.File,
+    virus: []u8,
+};
 
 pub const FreeClamEngine = fn (?*clam.cl_engine) callconv(.C) c_uint;
 pub fn freeEngine(comptime free: FreeClamEngine, engine: ?*clam.cl_engine) void {
@@ -10,8 +16,33 @@ pub fn freeEngine(comptime free: FreeClamEngine, engine: ?*clam.cl_engine) void 
     }
 }
 
+pub fn cStrToSlice(c_str: [*c]u8) []u8 {
+    const length = std.mem.sliceTo(c_str, 0).len;
+    return c_str[0..length :0];
+}
+
+pub fn extractFileNameFromPath(allocator: std.mem.Allocator, path: []u8) error{OutOfMemory}![]u8 {
+    // Loop through the path until you find the last os path seperator
+    var file_name_char_list = try std.ArrayList(u8).initCapacity(allocator, path.len);
+
+    defer file_name_char_list.deinit();
+
+    for (path) |char| {
+        if (std.fs.path.isSep(char)) {
+            file_name_char_list.clearRetainingCapacity();
+        }
+        file_name_char_list.appendAssumeCapacity(char);
+    }
+    return file_name_char_list.items;
+}
+
 pub fn main() !void {
+    var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const stdout = std.io.getStdOut().writer();
+
     const stdin = std.io.getStdIn().reader();
     var true_path: []u8 = undefined;
 
@@ -66,7 +97,20 @@ pub fn main() !void {
     // Converting the file handler from a zig style string array to a c style null terminated one
     const c_path: [*c]u8 = &true_path[0];
 
+    var scan_results: ScannedFileResults = .{
+        .file = fd,
+        .virus = undefined,
+    };
     try stdout.print("Now scanning the files for viruses\n", .{});
     const is_infected_with_virus: clam.cl_error_t = clam.cl_scandesc(fd.handle, c_path, &virname, &size, engine, &options);
-    _ = is_infected_with_virus;
+    if (is_infected_with_virus == clam.CL_VIRUS) {
+        // Add this to a virus array for the virus scan
+        scan_results.virus = cStrToSlice(virname);
+        try stdout.print("We got a virus! It's name is: {s}, it is in {d}.", .{ scan_results.virus, fd.handle });
+    } else if (is_infected_with_virus == clam.CL_CLEAN) {
+        const file_metadata = try fd.metadata();
+        _ = file_metadata;
+        try stdout.print("No viruses have been found in .{!s}\n", .{extractFileNameFromPath(alloc, true_path)});
+    }
+    try stdout.print("Finish scanning the files for viruses\n", .{});
 }
