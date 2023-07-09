@@ -54,7 +54,7 @@ pub fn main() !void {
                 std.os.exit(1);
             },
             else => {
-                std.debug.print("The were other unexpected errors {}", .{err});
+                std.debug.print("Their were other unexpected errors {}", .{err});
                 std.os.exit(1);
             },
         }
@@ -123,7 +123,7 @@ pub fn main() !void {
     if (is_infected_with_virus == clam.CL_VIRUS) {
         // Add this to a virus array for the virus scan
         scan_results.virus = cStrToSlice(virname);
-        try stdout.print("We got a virus! It's name is: {s}, it is in {d}.\n", .{ scan_results.virus, std.fs.path.basename(true_path) });
+        try stdout.print("We got a virus! It's name is: {s}, it is in {s}.\n", .{ scan_results.virus, std.fs.path.basename(true_path) });
     } else if (is_infected_with_virus == clam.CL_CLEAN) {
         // const file_metadata = try fd.metadata();
         // _ = file_metadata;
