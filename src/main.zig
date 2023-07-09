@@ -112,7 +112,7 @@ pub fn main() !void {
 
     // Converting the file handler from a zig style string array to a c style null terminated one
     const c_path: [*c]u8 = &true_path[0];
-
+    var file_name = std.fs.path.basename(true_path);
     var scan_results: ScannedFileResults = .{
         .file = fd,
         .virus = undefined,
@@ -123,11 +123,11 @@ pub fn main() !void {
     if (is_infected_with_virus == clam.CL_VIRUS) {
         // Add this to a virus array for the virus scan
         scan_results.virus = cStrToSlice(virname);
-        try stdout.print("We got a virus! It's name is: {s}, it is in {s}.\n", .{ scan_results.virus, std.fs.path.basename(true_path) });
+        try stdout.print("We got a virus! It's name is: {s}, it is in {s}.\n", .{ scan_results.virus, file_name });
     } else if (is_infected_with_virus == clam.CL_CLEAN) {
         // const file_metadata = try fd.metadata();
         // _ = file_metadata;
-        try stdout.print("No viruses have been found in {!s}\n", .{std.fs.path.basename(true_path)});
+        try stdout.print("No viruses have been found in {!s}\n", .{file_name});
     }
     try stdout.print("Finished scanning the file for viruses.\n", .{});
 
