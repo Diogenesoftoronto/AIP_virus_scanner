@@ -54,7 +54,7 @@ pub fn main() !void {
                 std.os.exit(1);
             },
             else => {
-                std.debug.print("Their were other unexpected errors {}", .{err});
+                std.debug.print("There were other unexpected errors {}", .{err});
                 std.os.exit(1);
             },
         }
