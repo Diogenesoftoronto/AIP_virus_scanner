@@ -78,6 +78,23 @@ pub fn main() !void {
     }
     try stdout.print("Clamav Engine has started successfully.\n", .{});
 
+    try stdout.print("Acquire the viral database. ", .{});
+    // var clam_db: [*c]u8 = undefined;
+    var sigs: c_uint = undefined;
+    const is_loaded = clam.cl_load(clam.cl_retdbdir(), engine, &sigs, clam.CL_DB_STDOPT);
+    if (is_loaded != clam.CL_SUCCESS) {
+        std.debug.print("\nDatabase failed to load.\n", .{});
+        std.os.exit(1);
+    }
+
+    try stdout.print("Compiling the engine. ", .{});
+    const is_compiled = clam.cl_engine_compile(engine);
+    if (is_compiled != clam.CL_SUCCESS) {
+        std.debug.print("\nThe engine failed to compile. \n", .{});
+        std.os.exit(1);
+    }
+    try stdout.print("Engine has successfully compiled.\n ", .{});
+
     var options: clam.cl_scan_options = .{
         .general = 0,
         .parse = 0,
