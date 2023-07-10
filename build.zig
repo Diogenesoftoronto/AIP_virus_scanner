@@ -25,6 +25,7 @@ pub fn build(b: *std.Build) void {
     });
     // This is to import the libc and the other c libraries we are using
     exe.linkSystemLibrary("c");
+    exe.linkSystemLibraryName("libc");
     exe.linkSystemLibrary("clamav");
     exe.addSystemIncludePath("clam/libclamav");
     // This declares intent for the executable to be installed into the
