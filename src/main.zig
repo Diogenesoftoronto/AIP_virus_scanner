@@ -1,6 +1,16 @@
 const std = @import("std");
 const clam = @import("c.zig");
 
+pub fn fatalf(comptime str: []const u8, args: anytype) void {
+    std.debug.print("{s} {any}", .{ str, args });
+    std.os.exit(1);
+}
+
+pub fn fatal(comptime str: []const u8) void {
+    std.debug.print(str, .{});
+    std.os.exit(1);
+}
+
 pub const ScannedFileResults = struct {
     file: std.fs.File,
     virus: []u8,
@@ -11,8 +21,7 @@ pub const FreeClamEngine = fn (?*clam.cl_engine) callconv(.C) c_uint;
 pub fn freeEngine(comptime free: FreeClamEngine, engine: ?*clam.cl_engine) void {
     const is_free = free(engine);
     if (is_free != clam.CL_SUCCESS) {
-        std.debug.print("Freeing the engine has failed", .{});
-        std.os.exit(1);
+        fatal("Freeing the engine has failed");
     }
 }
 
@@ -22,40 +31,49 @@ pub fn cStrToSlice(c_str: [*c]u8) []u8 {
 }
 
 pub fn main() !void {
-    // var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    // defer arena.deinit();
-    // const alloc = arena.allocator();
+    var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.c_allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const stdout = std.io.getStdOut().writer();
-    const stdin = std.io.getStdIn().reader();
+    var maybefd: ?std.fs.File = undefined;
+    var file: []const u8 = undefined;
 
-    var true_path: []u8 = undefined;
+    const args = try std.process.argsAlloc(alloc);
+    defer std.process.argsFree(alloc, args);
 
-    try stdout.print("Gimme a file you AIP: ", .{});
-
-    var read_buf: [80]u8 = undefined;
-
-    if (stdin.readUntilDelimiterOrEof(read_buf[0..], '\n')) |path| {
-        try stdout.print("Here is the file -> {?s}", .{path});
-        true_path = path.?;
-    } else |err| switch (err) {
-        error.StreamTooLong => std.debug.print("Your file name was too long, try a shorter file.", .{}),
-        else => std.debug.print("The were other unexpected errors {}", .{err}),
+    try stdout.print("Thanks for the file AIP. ", .{});
+    const all_paths: [][]const u8 = @as([][]const u8, args);
+    var path: []const u8 = undefined;
+    var dir_entries: []?std.fs.Dir.IterableDir = null;
+    for (all_paths) |ele| {
+        if (std.fs.cwd().openDir(ele, .{ .access_sub_paths = true })) |opened_dir| {
+            dir_entries = opened_dir.iterableDir();
+            path = ele;
+        } else |err| {
+            switch (err) {
+                error.NotDir => {
+                    file = std.fs.path.basename(path);
+                    return;
+                },
+                else => {
+                    fatalf("Unexpected error occured.", err);
+                },
+            }
+        }
     }
-
-    const maybefd = std.fs.cwd().openFile(true_path, .{
-        .mode = .read_only,
-    });
+    if (path)
+        maybefd = std.fs.cwd().openFile(path, .{
+            .mode = .read_only,
+        });
 
     const fd = maybefd catch |err| {
         switch (err) {
             error.FileNotFound => {
-                std.debug.print("\nThe file could not be found.\n", .{});
-                std.os.exit(1);
+                fatal("\nThe file could not be found.\n", .{});
             },
             else => {
-                std.debug.print("There were other unexpected errors {}", .{err});
-                std.os.exit(1);
+                fatal("There were other unexpected errors {}", .{err});
             },
         }
     };
@@ -64,8 +82,7 @@ pub fn main() !void {
     try stdout.print("\nInitializing Clamav\n", .{});
     const is_initialized = clam.cl_init(clam.CL_INIT_DEFAULT);
     if (is_initialized != clam.CL_SUCCESS) {
-        std.debug.print("Failed to initialize Clamav. Got: {}", .{is_initialized});
-        std.os.exit(1);
+        fatal("Failed to initialize Clamav. Got: {}", .{is_initialized});
     }
     try stdout.print("Clamav Initialisation complete.\n", .{});
 
@@ -73,26 +90,23 @@ pub fn main() !void {
     const engine: ?*clam.cl_engine = clam.cl_engine_new();
     defer freeEngine(clam.cl_engine_free, engine);
     if (engine == null) {
-        std.debug.print("The engine could not begin.", .{});
-        std.os.exit(1);
+        fatal("The engine could not begin.", .{});
     }
     try stdout.print("Clamav Engine has started successfully.\n", .{});
 
     try stdout.print("Acquire the viral database. ", .{});
-    // var clam_db: [*c]u8 = undefined;
+
     var sigs: c_uint = undefined;
     const is_loaded = clam.cl_load(clam.cl_retdbdir(), engine, &sigs, clam.CL_DB_STDOPT);
     if (is_loaded != clam.CL_SUCCESS) {
-        std.debug.print("\nDatabase failed to load.\n", .{});
-        std.os.exit(1);
+        fatal("\nDatabase failed to load.\n", .{});
     }
     try stdout.print("Viral database acquired.\n", .{});
 
     try stdout.print("Compiling the engine. ", .{});
     const is_compiled = clam.cl_engine_compile(engine);
     if (is_compiled != clam.CL_SUCCESS) {
-        std.debug.print("\nThe engine failed to compile. \n", .{});
-        std.os.exit(1);
+        fatal("\nThe engine failed to compile. \n", .{});
     }
     try stdout.print("Engine has successfully compiled.\n", .{});
 
@@ -111,8 +125,8 @@ pub fn main() !void {
     var size: u64 = undefined;
 
     // Converting the file handler from a zig style string array to a c style null terminated one
-    const c_path: [*c]u8 = &true_path[0];
-    var file_name = std.fs.path.basename(true_path);
+    const c_path: [*c]u8 = &path[0];
+    var file_name = std.fs.path.basename(path);
     var scan_results: ScannedFileResults = .{
         .file = fd,
         .virus = undefined,
